@@ -1,0 +1,141 @@
+---
+title: "Lab7 multiple linear regression"
+author: "Meghna Rao"
+date: "11/8/2021"
+output: html_document
+---
+
+```{r setup, include=TRUE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(palmerpenguins)
+library(GGally)
+library(broom)
+library(kableExtra)
+library(modelsummary)
+library(stargazer)
+```
+
+## Intro to GG cares
+we can use the ggally::ggpairs() fx to create a pairs plot
+```{r}
+ggpairs(penguins) # but we are interested in the scatter plots for continuous measured variables.
+```
+we are interested in species, bill length, depth flipper length and mass
+
+not storing anything here
+start with penguins and then only select the species column (specify a range with colons) and bill length to body mass in g (keeps species and all columns through bill length and body mass)
+```{r}
+penguins %>% 
+  select(species, bill_length_mm:body_mass_g) %>% # if you add group = species here it would be a positive relationship
+  ggpairs(aes(color = species)) #now instead of all the variables we have a more manageable pairs plot to investigate relationships more closely
+# relationship plotted is at the intersection of the two variables. 
+# we can customize this with aes in ggpairs
+ggplot(data = penguins, aes(x= bill_depth_mm, y = body_mass_g)) +
+  geom_point(aes(color = species)) + #without species in this graph we could say the overall trend of bill depth and body mass, a line would go through the two groups like a negative relationship. if you group within species it's a positive relationship
+  geom_smooth(method = "lm")
+```
+## multiple linear regressions - penguins
+
+use multiple linear regression to try to understand the relationship between multiple predicor variables and a single continuous outcome variable (body mass)
+ independent variable on the left hand side as a function of our dependent variable on the right hand side. 
+ 
+```{r}
+penguin_lm <- lm(body_mass_g ~ flipper_length_mm + bill_depth_mm, data = penguins)
+
+# Return just the coefficients:
+penguin_lm
+```
+How would you interpret this coefficient for flipper length?
+51.54: on average we expect a 1mm increase in flipper length to be associated with a 51.54 g increase in penguin body mass if everything else about the penguins is constant. (how can you refer to these numbers using in line code referencing?)
+
+use `summary()` fx to get more information:
+```{r}
+summary(penguin_lm)
+```
+
+Just the p value alone is not grounds for including or excluding a vlaue from a model
+
+if we are doing multiple linear regression we use an adjusted R- squared value
+
+R squared tells us variance - 75% of variance in our penguin body mass is explained by this model. This is neither good nor bad, this is just the percent of variance in the dependent variable explained by this model.
+
+### using `broom` functions tidy and glance to clean up
+
+use broom::tidy to get the coefficient symmary in a data frame
+use broom::glance to get the model summary in a data frame.
+
+```{r}
+penguin_lm_tidy <- tidy(penguin_lm)
+penguin_lm_tidy
+```
+if we want to refer to just one of these values (estimate column pull the third element) and want to pull it from this penguin_tidy_lm dataframe
+
+Try using in-line code to refer to the bill-depth coefficient. `r penguin_lm_tidy$estimate[3]`
+
+```{r}
+penguin_lm_glance <- glance(penguin_lm)
+
+penguin_lm_glance
+```
+
+
+## try another model
+
+we have thought really hard, done a lit review, consulted with experts, deeply explored our data and decided that the three most critical variables to include in this model age (with body mass as the outcome variable):
+
+- flipper length
+- species
+- sex
+
+task: create a multiple linear regression model using those 3 predictor variables.
+
+Then take a look at the model outputs and interpret the coefficients with a neighbor
+
+```{r}
+penguin_lm_another <- lm(body_mass_g ~ flipper_length_mm + species + sex, data = penguins)
+
+penguin_lm_another
+```
+If we had to write this as a formula it would look like this:
+mass(g) = -365.82 + 20.02(flipmm) - 87.63(chinstrap) + 836.26(gentoo) + 530.38(male)
+- reference for sex is female
+- reference level for species is adelie (if everything else is the same then on aver we expect gentoo penguin to weigh 836.26g more than an adeile penguin) (chinstrap we expect to be smaller than adelie on average 87.63 g) (if we used equatiomatic extract equation it would write this equation out in model form)
+
+
+### use broom:augment() to see predicted values
+```{r}
+augment(penguin_lm_another) # quick tool for the exisiting obs in you data set. predict also lets you use new sequence of values to create a new sequence
+```
+```{r}
+plot(penguin_lm_another) # what do each of the plots mean?
+```
+
+cooks distance - a value indicating if any observations are pulling more weight
+the thrid graph - standardized residuals (square root with normalization)
+1 - is actual residuals - actual calculated distance
+they are both showing us the same thing
+
+- conceptual understanding and expertise allows me to responsible determine that penguin species sex and flipper length are reasonable predictor varibales. (there are times you don't know when the most important predictor variables are) (so make sure you are thinkig hard about variables and different variable combinations) in combination with
+- diagnostic plots all check out for normality of residuals, homoscedasticity and no worrisome outliers (<< last one is not an assumption)
+
+what if I wanted to look at a model that used species, sex, bill length and flipper length?
+what if we want those two models and look at another model for comparision?
+that's why usually models in papers show the outcomes wit different combinations of predictor variables.
+
+
+## Make output tables
+lots of ways to do this, here we are using modelsummary:
+the key also has kable and kableExtra or stargazer.
+our model is stored to a name 
+
+```{r}
+modelsummary(penguin_lm_another)
+```
+
+## using stargazer
+
+```{r, results = "asis"}
+stargazer(penguin_lm_another, type = "html") #make sure you update your variballes, but this is a great way to make a multiple regression table for your papers!
+```
+
